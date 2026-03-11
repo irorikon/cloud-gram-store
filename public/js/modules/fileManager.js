@@ -196,7 +196,8 @@ export class FileManager {
      */
     async uploadFileWithChunks(file, folderId = null, onProgress = null) {
         // 与后端 Telegram 分片大小对齐，避免前端与后端产生不一致的分片策略
-        const CHUNK_SIZE = 25 * 1024 * 1024; // 25MB per chunk
+        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
+        // const CHUNK_SIZE = 25 * 1024 * 1024; // 25MB per chunk
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
         const uploadId = this.generateUploadId();
 

@@ -1039,6 +1039,67 @@ body {
         margin-top: 0.5rem;
         font-size: 0.92rem;
     }
+    /* 登录页面在暗色模式下的专用优化 */
+    .login-container {
+        background: radial-gradient(circle at 10% 10%, rgba(102,126,234,0.09), transparent 18%), linear-gradient(135deg,#0f1220 0%, #0b0d12 100%);
+    }
+
+    .login-box {
+        background: linear-gradient(180deg,#0f1113,#17181a);
+        color: #e6eef6;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+        border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .login-header h1 {
+        color: #ffffff;
+    }
+
+    .login-header p {
+        color: #98bfe8;
+    }
+
+    .login-form label {
+        color: #cfe6ff;
+        font-weight: 600;
+    }
+
+    .login-form input {
+        background-color: #0f1112;
+        border: 1px solid rgba(255,255,255,0.04);
+        color: #e6eef6;
+        padding: 0.7rem;
+        border-radius: 8px;
+    }
+
+    .login-form input::placeholder {
+        color: #859bb0;
+        opacity: 1;
+    }
+
+    .login-form input:focus {
+        border-color: rgba(102,170,255,0.9);
+        box-shadow: 0 8px 20px rgba(102,170,255,0.06);
+        outline: none;
+    }
+
+    .login-btn {
+        background: linear-gradient(180deg,#2e7bff,#1a5fe0);
+        color: #ffffff;
+        box-shadow: 0 8px 24px rgba(46,123,255,0.12);
+        border: none;
+    }
+
+    .login-btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.04);
+    }
+
+    .error-message {
+        background-color: #3a1a1a;
+        color: #ffb3b3;
+        border: 1px solid #5a1a1a;
+    }
     /* 调整文件列表在暗色模式的分隔线和阴影，去除白色边框 */
     .file-item {
         border-bottom: 1px solid rgba(255,255,255,0.03);

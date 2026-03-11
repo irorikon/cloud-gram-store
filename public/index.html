@@ -54,8 +54,15 @@
                 <h1 class="header-title">CloudGramStore</h1>
             </div>
             <div class="header-right">
-                <span id="currentUser" class="user-info"></span>
-                <button id="logoutBtn" class="logout-btn">退出登录</button>
+                <div class="dropdown" id="userDropdown">
+                    <button class="dropdown-toggle btn" id="userDropdownToggle">
+                        <span id="currentUser" class="user-info"></span>
+                        <span style="margin-left:8px;">▾</span>
+                    </button>
+                    <div class="dropdown-menu" id="userDropdownMenu" style="display:none;">
+                        <button class="dropdown-item" id="logoutMenuItem">退出登录</button>
+                    </div>
+                </div>
             </div>
         </header>
 

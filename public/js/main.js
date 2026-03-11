@@ -57,9 +57,34 @@ class CloudGramApp {
         const loginForm = document.getElementById('loginForm');
         loginForm.addEventListener('submit', this.handleLogin.bind(this));
 
-        // 登出按钮
-        const logoutBtn = document.getElementById('logoutBtn');
-        logoutBtn.addEventListener('click', this.handleLogout.bind(this));
+        // 用户下拉菜单（登出在下拉项中）
+        const userToggle = document.getElementById('userDropdownToggle');
+        const userMenu = document.getElementById('userDropdownMenu');
+        const logoutMenuItem = document.getElementById('logoutMenuItem');
+
+        if (userToggle && userMenu) {
+            userToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userMenu.classList.toggle('show');
+                if (userMenu.classList.contains('show')) {
+                    userMenu.style.display = 'block';
+                } else {
+                    userMenu.style.display = 'none';
+                }
+            });
+
+            // 点击页面其他地方关闭下拉
+            document.addEventListener('click', () => {
+                if (userMenu.classList.contains('show')) {
+                    userMenu.classList.remove('show');
+                    userMenu.style.display = 'none';
+                }
+            });
+        }
+
+        if (logoutMenuItem) {
+            logoutMenuItem.addEventListener('click', this.handleLogout.bind(this));
+        }
 
         // 工具栏按钮
         document.getElementById('uploadBtn').addEventListener('click', this.handleUploadClick.bind(this));
@@ -219,12 +244,23 @@ class CloudGramApp {
         this.uiManager.showLoading('正在上传...');
         for (const file of files) {
             try {
+                // 在每个文件开始上传时显示上传模态（会自动隐藏全局 loading 遮罩）
+                this.uiManager.showUploadModal && this.uiManager.showUploadModal();
+                // 立即显示文件名和 0% 进度，确保在第一个分片完成前能看到文件名
+                this.uiManager.updateUploadProgress && this.uiManager.updateUploadProgress(file.name, 0);
+
                 await this.fileManager.uploadFile(file, this.currentFolderId, (progress) => {
                     this.uiManager.updateUploadProgress && this.uiManager.updateUploadProgress(file.name, progress);
                 });
 
+                // 上传完成 — 由后端返回并且 uploadFile() resolve 后执行
+                this.uiManager.hideUploadModal && this.uiManager.hideUploadModal();
+
                 this.notification.success('上传成功', `文件 ${file.name} 上传完成`);
             } catch (error) {
+                // 确保在错误情况下也关闭上传模态
+                this.uiManager.hideUploadModal && this.uiManager.hideUploadModal();
+                console.error('文件上传错误:', error);
                 console.error('文件上传错误:', error);
 
                 // 构建详细错误信息对象

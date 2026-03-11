@@ -9,9 +9,10 @@ export class TelegramService {
     this.botToken = botToken;
     this.chatId = chatId;
     this.apiBaseUrl = `https://api.telegram.org/bot${botToken}`;
-    // 降低分片大小以适应 Cloudflare Workers 的内存限制
-    // 原来是 19MB，现在改为 5MB 以确保内存安全
-    this.chunkSize = 5 * 1024 * 1024; // 5MB，在内存限制下更安全
+    // 调整分片大小以平衡 Telegram 上传要求与 Cloudflare Workers 内存限制
+    // 原先为 5MB（出于内存考虑），现在根据部署环境调整为 25MB，以减少分片数量。
+    // 如果需要更改此值，请同时更新前端的分片阈值/大小（public/js/modules/fileManager.js）。
+    this.chunkSize = 25 * 1024 * 1024; // 25MB
   }
 
   /**

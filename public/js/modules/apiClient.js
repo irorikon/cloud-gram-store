@@ -190,9 +190,27 @@ export class ApiClient {
                 const xhr = new XMLHttpRequest();
 
                 xhr.upload.addEventListener('progress', (e) => {
-                    if (e.lengthComputable) {
-                        const percentComplete = (e.loaded / e.total) * 100;
+                    try {
+                        // 有时 e.lengthComputable 为 false（后端未返回 content-length），
+                        // 但浏览器仍会提供 e.loaded。使用 file.size 作为回退值以估算百分比。
+                        const total = (e.lengthComputable && e.total) ? e.total : (file && file.size) ? file.size : 0;
+                        const loaded = e.loaded || 0;
+
+                        let percentComplete = 0;
+                        if (total > 0) {
+                            percentComplete = (loaded / total) * 100;
+                        } else if (loaded > 0) {
+                            // 无法获取 total 时，做一个渐进式估算，避免直接停留在 0
+                            percentComplete = Math.min(95, (loaded / (loaded + 1)) * 100);
+                        }
+
+                        // 保证范围 0-100
+                        percentComplete = Math.max(0, Math.min(100, percentComplete));
+
                         onProgress(percentComplete);
+                    } catch (err) {
+                        // 进度回调不应阻塞上传流程
+                        console.warn('上传进度计算失败:', err);
                     }
                 });
 

@@ -146,7 +146,10 @@ export class FileManager {
             this.validateFile(file);
 
             // 设置分片大小阈值，超过此大小使用分片上传
-            const CHUNK_THRESHOLD = 50 * 1024 * 1024; // 50MB
+            // 注意：后端会将上传数据按照 Telegram 的要求再分片（后端默认 chunkSize 在 `src/services/telegram.js` 中），
+            // 为保持前后端一致并减少分片数量，这里将前端阈值调整为 25MB。
+            // 如需更改，请同时同步修改后端 `src/services/telegram.js` 中的 `chunkSize`。
+            const CHUNK_THRESHOLD = 25 * 1024 * 1024; // 25MB
 
             if (file.size > CHUNK_THRESHOLD) {
                 console.log(`文件大小 ${this.formatFileSize(file.size)} 超过阈值${CHUNK_THRESHOLD}，使用分片上传`);
@@ -192,7 +195,8 @@ export class FileManager {
      * @returns {Promise<Object>} - 上传结果
      */
     async uploadFileWithChunks(file, folderId = null, onProgress = null) {
-        const CHUNK_SIZE = 20 * 1024 * 1024; // 20MB per chunk
+        // 与后端 Telegram 分片大小对齐，避免前端与后端产生不一致的分片策略
+        const CHUNK_SIZE = 25 * 1024 * 1024; // 25MB per chunk
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
         const uploadId = this.generateUploadId();
 
@@ -544,7 +548,7 @@ export class FileManager {
         if (!mimeType) return '📄';
 
         if (mimeType.startsWith('image/')) return '🖼️';
-        if (mimeType.startsWith('video/')) return '🎥';
+        if (mimeType.startsWith('video/')) return '🎬';
         if (mimeType.startsWith('audio/')) return '🎵';
         if (mimeType.includes('pdf')) return '📕';
         if (mimeType.includes('word')) return '📘';

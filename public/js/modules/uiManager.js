@@ -95,7 +95,17 @@ export class UIManager {
      * 显示上传进度模态框
      */
     showUploadModal() {
-        this.showModal('uploadModal');
+        // 直接隐藏可能存在的全局 loading 遮罩，确保上传模态不被覆盖
+        const globalMask = document.getElementById('globalLoadingMask');
+        if (globalMask) {
+            try { globalMask.style.display = 'none'; } catch (e) { /* ignore */ }
+        }
+
+        const modal = this.modals.get('uploadModal') || document.getElementById('uploadModal');
+        if (modal) {
+            modal.style.zIndex = '11000';
+            this.showModal('uploadModal');
+        }
     }
 
     /**
@@ -113,27 +123,17 @@ export class UIManager {
         const percentElement = document.getElementById('uploadPercent');
         const progressFill = document.getElementById('progressBarFill');
 
-        if (fileNameElement) {
-            fileNameElement.textContent = fileName;
-        }
+        if (fileNameElement) fileNameElement.textContent = fileName || '';
 
-        if (percentElement) {
-            percentElement.textContent = `${Math.round(progress)}%`;
-        }
+        const pct = (typeof progress === 'number' && isFinite(progress)) ? Math.max(0, Math.min(100, progress)) : 0;
 
-        if (progressFill) {
-            progressFill.style.width = `${progress}%`;
-        }
+        if (percentElement) percentElement.textContent = `${Math.round(pct)}%`;
+        if (progressFill) progressFill.style.width = `${pct}%`;
 
-        // 显示上传模态框
+        // 显示上传模态框（确保覆盖全局 loading）
         this.showUploadModal();
 
-        // 如果上传完成，延迟关闭模态框
-        if (progress >= 100) {
-            setTimeout(() => {
-                this.hideUploadModal();
-            }, 1500);
-        }
+        // 不在这里自动关闭模态，确保上层上传流程在后端确认完成后再关闭模态
     }
 
     /**

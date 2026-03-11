@@ -143,6 +143,77 @@ body {
     font-size: 0.9rem;
 }
 
+/* 用户信息下拉（header 右侧）样式优化 */
+#userDropdown {
+    position: relative;
+    display: inline-block;
+}
+
+#userDropdownToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+
+#userDropdownToggle:hover {
+    background-color: rgba(0,0,0,0.04);
+    border-color: rgba(0,0,0,0.06);
+    transform: translateY(-1px);
+}
+
+.user-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.user-info::before {
+    content: '👤';
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    text-align: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#eef6ff,#d6eaff);
+    color: #1e293b;
+    font-size: 14px;
+}
+
+#userDropdownMenu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    min-width: 160px;
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    padding: 6px 0;
+    z-index: 2200;
+}
+
+#userDropdownMenu .dropdown-item {
+    width: 100%;
+    text-align: left;
+    padding: 8px 14px;
+    color: #333;
+    background: none;
+}
+
+#userDropdownMenu .dropdown-item:hover {
+    background: #f5f7fb;
+}
+
+
 .logout-btn {
     padding: 0.5rem 1rem;
     background-color: #6c757d;
@@ -826,8 +897,78 @@ body {
     }
 
     .modal-content {
-        background-color: #1e1e1e;
-        color: #e0e0e0;
+        background-color: #0f1112;
+        color: #e6eef6;
+        border: 1px solid rgba(255,255,255,0.04);
+        box-shadow: 0 30px 80px rgba(0,0,0,0.75);
+        transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+
+    .modal {
+        /* 更深的遮罩并添加模糊，突出模态 */
+        background-color: rgba(0,0,0,0.6);
+        backdrop-filter: blur(4px) saturate(120%);
+    }
+
+    .modal-header, .modal-footer {
+        border-color: rgba(255,255,255,0.03);
+    }
+
+    .modal-header h3 {
+        color: #f6fbff;
+    }
+
+    .modal-body {
+        color: #cfe6ff;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid rgba(255,255,255,0.03);
+    }
+
+    /* 模态内按钮样式，增强对比度 */
+    .modal-content .btn {
+        color: #e6eef6;
+    }
+
+    .modal-content .btn-primary {
+        background: linear-gradient(180deg,#2766ff,#0046d6);
+        border: none;
+        box-shadow: 0 6px 18px rgba(39,102,255,0.12);
+    }
+
+    .modal-content .btn-secondary {
+        background: rgba(255,255,255,0.04);
+        color: #e6eef6;
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .modal-close {
+        color: #cfcfcf;
+    }
+
+    .modal-close:hover {
+        color: #ffffff;
+    }
+
+    /* 输入与表单在模态内的表现 */
+    .modal-content .form-item input,
+    .modal-content .form-item textarea {
+        background-color: #131416;
+        border: 1px solid rgba(255,255,255,0.04);
+        color: #e6eef6;
+    }
+
+    .modal-content .form-item input:focus,
+    .modal-content .form-item textarea:focus {
+        border-color: rgba(66,153,225,0.9);
+        box-shadow: 0 6px 20px rgba(66,153,225,0.08);
+        outline: none;
     }
 
     .form-item input {
@@ -838,6 +979,277 @@ body {
 
     .form-item input:focus {
         border-color: #007bff;
+    }
+    /* 优化表单项在暗色模式下的显示 */
+    .form-item {
+        padding: 0.5rem 0;
+    }
+
+    .form-item label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #cfe6ff;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .form-item input,
+    .form-item textarea,
+    .form-item select {
+        background-color: #131416;
+        border: 1px solid rgba(255,255,255,0.04);
+        color: #e6eef6;
+        padding: 0.6rem 0.75rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .form-item textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .form-item input::placeholder,
+    .form-item textarea::placeholder {
+        color: #8f9bb0;
+        opacity: 1;
+    }
+
+    .form-item input:focus,
+    .form-item textarea:focus,
+    .form-item select:focus {
+        outline: none;
+        border-color: #66aaff;
+        box-shadow: 0 8px 20px rgba(102,170,255,0.08);
+    }
+
+    .form-item .form-help {
+        color: #9fb7d9;
+        font-size: 0.9rem;
+        margin-top: 0.4rem;
+    }
+
+    .form-item .error-message {
+        color: #ffb3b3;
+        background-color: #3a1a1a;
+        border: 1px solid #5a1a1a;
+        border-radius: 6px;
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+        font-size: 0.92rem;
+    }
+    /* 调整文件列表在暗色模式的分隔线和阴影，去除白色边框 */
+    .file-item {
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .file-list {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    }
+    /* 提升暗色模式文字对比度 */
+    body, .header-title, .breadcrumb, .user-info, .login-header h1, .login-header p,
+    .file-name, .file-meta, .file-info, .file-actions, .dropdown-toggle,
+    .dropdown-item, .notification-item, .notification-title, .notification-message,
+    .loader-content p, .empty-state, .loading {
+        color: #e6eef6;
+    }
+
+    .breadcrumb-link {
+        color: #66aaff;
+    }
+
+    .dropdown-menu {
+        background: #222;
+        border-color: #333;
+    }
+
+    .dropdown-item {
+        color: #e6eef6;
+    }
+
+    .dropdown-item:hover {
+        background: #2a2a2a;
+    }
+
+    .form-item input::placeholder {
+        color: #9e9e9e;
+    }
+
+    /* 暗色模式：通知样式优化，使背景更暗并提高可读性 */
+    .notification-item {
+        background-color: #181a1b;
+        border: 1px solid rgba(255,255,255,0.04);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        color: #e6eef6;
+    }
+
+    .notification-success {
+        border-left: 4px solid #16a34a;
+        /* 使用不透明深绿色背景以便在暗色模式下清晰可见 */
+        background-color: #06331b;
+        background-image: none;
+    }
+
+    .notification-error {
+        border-left: 5px solid #ff6b6b;
+        /* 使用不透明深红背景以便在暗色模式下清晰可见 */
+        background-color: #3b0b0b;
+        background-image: none;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    }
+
+    .notification-title {
+        color: #ffffff;
+    }
+
+    .notification-message {
+        color: #cbd6e6;
+    }
+
+    .notification-details {
+        color: #ffd2d2;
+        background: #2b1414;
+        border-radius: 4px;
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        font-size: 0.92rem;
+    }
+
+    .notification-close {
+        color: #cfcfcf;
+    }
+
+    .notification-close:hover {
+        color: #ffffff;
+    }
+
+    /* 暗色模式：拖拽上传背景和提示样式 */
+    .drag-over {
+        background-color: rgba(102,126,234,0.08);
+        border: 2px dashed rgba(102,126,234,0.5);
+    }
+
+    .drag-over::after {
+        background-color: rgba(66,153,225,0.95);
+        color: #fff;
+        padding: 1rem 1.5rem;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    }
+
+    /* 按钮在暗色模式下的覆盖，保持与亮色模式视觉一致但更适配深色背景 */
+    .btn-primary {
+        background: linear-gradient(180deg,#2e7bff,#1a5fe0);
+        color: #ffffff;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(180deg,#3a86ff,#1f66e6);
+        transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+        background-color: #4f585d;
+        color: #e6eef6;
+    }
+
+    .btn-secondary:hover {
+        background-color: #454b50;
+    }
+
+    .btn-outline {
+        background-color: transparent;
+        color: #66aaff;
+        border: 1px solid rgba(102,170,255,0.25);
+    }
+
+    .btn-outline:hover {
+        background-color: #66aaff;
+        color: #fff;
+    }
+
+    .btn-danger {
+        background-color: #b71c1c;
+        color: #fff;
+    }
+
+    /* 下拉切换的 hover 覆盖 */
+    .dropdown-toggle:hover {
+        background: rgba(255,255,255,0.02);
+    }
+
+    /* 页面加载遮罩在暗色模式下 */
+    .page-loader {
+        background-color: rgba(0,0,0,0.65);
+    }
+
+    .loader-content p {
+        color: #cfe6ff;
+    }
+
+    .loader-spinner {
+        border: 4px solid #2b2b2b;
+        border-top: 4px solid #66aaff;
+    }
+
+    /* 暗色滚动条 */
+    ::-webkit-scrollbar-track {
+        background: #0f1112;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #3a3f45;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #52575d;
+    }
+
+    /* Firefox 滚动条深色配置 */
+    * {
+        scrollbar-color: #3a3f45 #0f1112;
+    }
+
+    /* 头部阴影调整，避免在暗色模式下过强 */
+    .header {
+        box-shadow: 0 1px 6px rgba(0,0,0,0.6);
+    }
+
+    /* 优化模态框在暗色模式下的显示 */
+    .modal-content {
+        background-color: #161616;
+        color: #e6eef6;
+        border: 1px solid #272727;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .modal-close {
+        color: #cfcfcf;
+    }
+
+    .modal-close:hover {
+        color: #ffffff;
+    }
+
+    /* 错误提示框（页面或表单内）暗色样式 */
+    .error-message {
+        color: #ffb3b3;
+        font-size: 0.9rem;
+        margin-top: 1rem;
+        padding: 0.5rem;
+        background-color: #3a1a1a;
+        border: 1px solid #5a1a1a;
+        border-radius: 4px;
+        display: none;
+    }
+
+    .error-message.show {
+        display: block;
     }
 }
 

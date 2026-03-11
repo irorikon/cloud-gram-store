@@ -19,18 +19,28 @@ export class FileService {
   async uploadFile(file, folderId) {
     console.log(`[INFO] 开始上传文件: ${file.name}, 大小: ${file.size} 字节, 文件夹ID: ${folderId || 'root'}`);
     try {
-      // 获取文件数据
-      const arrayBuffer = await file.arrayBuffer();
-      const fileData = new Uint8Array(arrayBuffer);
-
       // 确定 MIME 类型
       const mimeType = file.type || 'application/octet-stream';
       console.log(`[INFO] 文件 ${file.name} MIME类型: ${mimeType}`);
 
       // 上传到 Telegram
       console.log(`[INFO] 开始上传文件 ${file.name} 到 Telegram`);
-      const telegramChunks = await this.telegram.uploadFile(fileData, file.name);
-      console.log(`[INFO] 文件 ${file.name} 上传到 Telegram 完成，共 ${telegramChunks.length} 个分片`);
+
+      // 与 Telegram 分片策略保持一致：<=50MB 单次上传，否则由 telegram.uploadFile 进行分片处理
+      const NO_CHUNK_LIMIT = 50 * 1024 * 1024; // 50MB
+      let telegramChunks;
+      if (file.size <= NO_CHUNK_LIMIT) {
+        // 直接以 Blob/File 转发，避免将整个文件读入 Worker 内存
+        const result = await this.telegram.uploadChunk(file, file.name);
+        telegramChunks = [{ index: 0, telegramFileId: result.document.file_id, telegramMessageId: result.message_id, size: file.size }];
+        console.log(`[INFO] 文件 ${file.name} 单次上传到 Telegram 完成`);
+      } else {
+        // 对于较大文件，复用 telegram.uploadFile（它会按分片策略分片并上传）
+        const arrayBuffer = await file.arrayBuffer();
+        const fileData = new Uint8Array(arrayBuffer);
+        telegramChunks = await this.telegram.uploadFile(fileData, file.name);
+        console.log(`[INFO] 文件 ${file.name} 上传到 Telegram 完成，共 ${telegramChunks.length} 个分片`);
+      }
 
       // 创建文件记录
       console.log(`[INFO] 为文件 ${file.name} 创建数据库记录`);
@@ -49,6 +59,7 @@ export class FileService {
           fileRecord.id,
           chunk.index,
           chunk.telegramFileId,
+          chunk.telegramMessageId,
           chunk.size
         );
         chunkRecords.push(chunkRecord);
@@ -363,9 +374,8 @@ export class FileService {
   async uploadFileChunk(chunkFile, uploadId, chunkIndex, totalChunks, originalFileName, originalFileSize, folderId) {
     console.log(`[INFO] 开始上传分片: ${originalFileName}, 分片 ${chunkIndex + 1}/${totalChunks}, 大小: ${chunkFile.size} 字节`);
     try {
-      // 获取分片数据
-      const arrayBuffer = await chunkFile.arrayBuffer();
-      const chunkData = new Uint8Array(arrayBuffer);
+      // 不再将整个分片读入内存，直接以 Blob/File 转发给 Telegram
+      const chunkBlob = chunkFile; // 这是一个 File/Blob 来自 request.formData()
 
       // 生成分片文件名
       const chunkFileName = totalChunks > 1
@@ -374,15 +384,17 @@ export class FileService {
 
       // 直接上传分片到 Telegram（无需再分片）
       console.log(`[INFO] 上传分片 ${chunkIndex + 1}/${totalChunks} 到 Telegram: ${chunkFileName}`);
-      const telegramFileId = await this.telegram.uploadChunk(chunkData, chunkFileName);
-      console.log(`[INFO] 分片 ${chunkIndex + 1}/${totalChunks} 上传到 Telegram 完成，文件ID: ${telegramFileId.substring(0, 10)}...`);
+      const telegram = await this.telegram.uploadChunk(chunkBlob, chunkFileName);
+      console.log(`[INFO] 分片 ${chunkIndex + 1}/${totalChunks} 上传到 Telegram 完成，文件ID: ${telegram.document.file_id.substring(0, 10)}...`);
 
       // 创建临时分片记录（用于后续合并）
+      const chunkSize = chunkBlob.size || 0;
       const chunkRecord = await this.db.createTempChunk(
         uploadId,
         chunkIndex,
-        telegramFileId,
-        chunkData.length,
+        telegram.document.file_id,
+        telegram.message_id,
+        chunkSize,
         originalFileName,
         originalFileSize,
         folderId
@@ -392,8 +404,9 @@ export class FileService {
       return {
         uploadId,
         chunkIndex,
-        telegramFileId,
-        size: chunkData.length,
+        telegramFileId: telegram.document.file_id,
+        telegramMessageId: telegram.message_id,
+        size: chunkSize,
         chunkId: chunkRecord.id
       };
     } catch (error) {
@@ -453,6 +466,7 @@ export class FileService {
           fileRecord.id,
           tempChunk.chunk_index,
           tempChunk.telegram_file_id,
+          tempChunk.telegram_message_id,
           tempChunk.size
         );
         chunkRecords.push(chunkRecord);

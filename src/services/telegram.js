@@ -9,11 +9,7 @@ export class TelegramService {
     this.botToken = botToken;
     this.chatId = chatId;
     this.apiBaseUrl = `https://api.telegram.org/bot${botToken}`;
-    // 调整分片大小以平衡 Telegram 上传要求与 Cloudflare Workers 内存限制
-    // 原先为 5MB（出于内存考虑），现在根据部署环境调整为 25MB，以减少分片数量。
-    // 如果需要更改此值，请同时更新前端的分片阈值/大小（public/js/modules/fileManager.js）
-    this.chunkSize = 5 * 1024 * 1024; // 5MB
-    // this.chunkSize = 25 * 1024 * 1024; // 25MB
+    // 不在构造器中固定 chunkSize，按每个文件总大小动态选择分片大小（与前端保持一致）
   }
 
   /**
@@ -25,26 +21,44 @@ export class TelegramService {
   async uploadFile(fileData, fileName) {
     console.log(`[TELEGRAM] 开始上传文件到 Telegram: ${fileName}, 大小: ${fileData.length} 字节`);
 
-    // 添加文件大小检查，避免超出内存限制
-    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB 限制
+    // 放宽最大文件限制以与前端一致（前端允许最大 2GB）
+    const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
     if (fileData.length > MAX_FILE_SIZE) {
       throw new Error(`文件大小超出限制: ${fileData.length} 字节，最大允许: ${MAX_FILE_SIZE} 字节`);
     }
 
     try {
+      // 分片策略（与前端统一）
+      // - 文件 <= 50MB：不分片，直接一次性上传
+      // - 50MB < 文件 <= 200MB：使用 20MB 分片
+      // - 文件 > 200MB：使用 10MB 分片
+      const NO_CHUNK_LIMIT = 50 * 1024 * 1024; // 50MB
+      const MID_LIMIT = 200 * 1024 * 1024; // 200MB
+      const CHUNK_20MB = 20 * 1024 * 1024; // 20MB
+      const CHUNK_10MB = 10 * 1024 * 1024; // 10MB
+
+      let chunkSize;
+      if (fileData.length <= NO_CHUNK_LIMIT) {
+        chunkSize = fileData.length; // 单次上传
+      } else if (fileData.length <= MID_LIMIT) {
+        chunkSize = CHUNK_20MB;
+      } else {
+        chunkSize = CHUNK_10MB;
+      }
+
       // 计算分片数量和大小，但不创建所有分片
-      const totalChunks = Math.ceil(fileData.length / this.chunkSize);
-      console.log(`[TELEGRAM] 文件 ${fileName} 将分割为 ${totalChunks} 个分片`);
+      const totalChunks = Math.ceil(fileData.length / chunkSize);
+      console.log(`[TELEGRAM] 文件 ${fileName} 将分割为 ${totalChunks} 个分片，分片大小: ${chunkSize} 字节`);
 
       const messageIds = [];
 
       // 流式处理：一次只处理一个分片
       for (let i = 0; i < totalChunks; i++) {
-        const startOffset = i * this.chunkSize;
-        const endOffset = Math.min(startOffset + this.chunkSize, fileData.length);
+        const startOffset = i * chunkSize;
+        const endOffset = Math.min(startOffset + chunkSize, fileData.length);
 
         // 创建单个分片，避免同时保存所有分片
-        const chunk = fileData.slice(startOffset, endOffset);
+        let chunk = fileData.slice(startOffset, endOffset);
 
         const chunkFileName = totalChunks > 1
           ? `${fileName}.part${i.toString().padStart(3, '0')}`
@@ -54,13 +68,14 @@ export class TelegramService {
         const startTime = Date.now();
 
         try {
-          const telegramFileId = await this.uploadChunk(chunk, chunkFileName);
+          const telegramResult = await this.uploadChunk(chunk, chunkFileName);
           const duration = Date.now() - startTime;
-          console.log(`[TELEGRAM] 分片 ${i+1}/${totalChunks} 上传完成，用时: ${duration}ms, 文件ID: ${telegramFileId.substring(0, 10)}...`);
+          console.log(`[TELEGRAM] 分片 ${i+1}/${totalChunks} 上传完成，用时: ${duration}ms, 文件ID: ${telegramResult.document.file_id.substring(0, 10)}...`);
 
           messageIds.push({
             index: i,
-            telegramFileId,
+            telegramFileId: telegramResult.document.file_id,
+            telegramMessageId: telegramResult.message_id,
             size: chunk.length
           });
         } catch (chunkError) {
@@ -69,7 +84,18 @@ export class TelegramService {
         }
 
         // 手动释放分片内存引用（虽然 JS 有垃圾回收，但显式释放有助于减少内存压力）
-        // chunk 变量会在循环结束时自动超出作用域
+        // 主动覆盖分片内容并释放引用，帮助在高内存压力下尽早回收
+        try {
+          if (chunk && typeof chunk.fill === 'function') {
+            chunk.fill(0);
+          }
+        } catch (e) {
+          // ignore fill errors
+        }
+        chunk = null;
+        if (typeof globalThis !== 'undefined' && typeof globalThis.gc === 'function') {
+          try { globalThis.gc(); } catch (e) {}
+        }
       }
 
       console.log(`[TELEGRAM] 文件 ${fileName} 上传到 Telegram 完成，共 ${totalChunks} 个分片`);
@@ -114,6 +140,24 @@ export class TelegramService {
       console.log(`[TELEGRAM] 所有分片下载完成，开始合并`);
       const mergedData = this.mergeChunks(chunkDataArray);
       console.log(`[TELEGRAM] 分片合并完成，总大小: ${mergedData.length} 字节`);
+
+      // 主动清理已下载的分片数据，覆盖并释放引用以减少内存峰值
+      try {
+        for (let j = 0; j < chunkDataArray.length; j++) {
+          const c = chunkDataArray[j];
+          if (c && typeof c.fill === 'function') {
+            try { c.fill(0); } catch (e) {}
+          }
+          chunkDataArray[j] = null;
+        }
+      } catch (e) {
+        // ignore cleanup errors
+      }
+
+      if (typeof globalThis !== 'undefined' && typeof globalThis.gc === 'function') {
+        try { globalThis.gc(); } catch (e) {}
+      }
+
       return mergedData;
     } catch (error) {
       console.error(`[TELEGRAM] [ERROR] 从 Telegram 下载文件失败:`, error);
@@ -136,7 +180,7 @@ export class TelegramService {
   async deleteFile(chunks) {
     try {
       for (const chunk of chunks) {
-        await this.deleteTelegramFileById(chunk.telegram_file_id);
+        await this.deleteTelegramFileById(chunk);
       }
     } catch (error) {
       console.error('Error deleting file from Telegram:', error);
@@ -150,7 +194,7 @@ export class TelegramService {
    * @param {Uint8Array} fileData - 文件数据
    * @returns {Array} 分片数组
    */
-  splitFileIntoChunks(fileData) {
+  splitFileIntoChunks(fileData, chunkSize = 5 * 1024 * 1024) {
     // 这个方法已经在 uploadFile 中用流式处理替代
     // 保留此方法以确保向后兼容，但不建议直接使用
     console.warn('[TELEGRAM] [DEPRECATED] splitFileIntoChunks 方法已弃用，建议使用流式处理');
@@ -159,10 +203,10 @@ export class TelegramService {
     let offset = 0;
 
     while (offset < fileData.length) {
-      const chunkSize = Math.min(this.chunkSize, fileData.length - offset);
-      const chunk = fileData.slice(offset, offset + chunkSize);
+      const currentChunkSize = Math.min(chunkSize, fileData.length - offset);
+      const chunk = fileData.slice(offset, offset + currentChunkSize);
       chunks.push(chunk);
-      offset += chunkSize;
+      offset += currentChunkSize;
     }
 
     return chunks;
@@ -195,13 +239,23 @@ export class TelegramService {
    * @param {string} fileName - 文件名
    * @returns {string} telegramFile的ID
    */
-  async uploadChunk(chunkData, fileName) {
+  async uploadChunk(chunkOrBlob, fileName) {
     try {
-      const formData = new FormData();
+      let formData = new FormData();
       formData.append('chat_id', this.chatId);
-      formData.append('document', new Blob([chunkData]), fileName);
 
-      console.log(`[TELEGRAM] 发送请求到 Telegram API: /sendDocument, 文件名: ${fileName}, 大小: ${chunkData.length} 字节`);
+      let size = 0;
+      // 支持传入 Uint8Array 或 Blob/File，避免在 Worker 中不必要的复制
+      if (chunkOrBlob instanceof Uint8Array) {
+        formData.append('document', new Blob([chunkOrBlob]), fileName);
+        size = chunkOrBlob.length;
+      } else {
+        // 假设为 Blob / File
+        formData.append('document', chunkOrBlob, fileName);
+        try { size = chunkOrBlob.size || 0; } catch (e) { size = 0; }
+      }
+
+      console.log(`[TELEGRAM] 发送请求到 Telegram API: /sendDocument, 文件名: ${fileName}, 大小: ${size} 字节`);
       const response = await fetch(`${this.apiBaseUrl}/sendDocument`, {
         method: 'POST',
         body: formData
@@ -219,7 +273,10 @@ export class TelegramService {
         throw new Error(`Telegram API error: ${result.description}`);
       }
 
-      return result.result.document.file_id;
+      // 尝试尽早释放对表单数据的引用
+      try { formData = null; } catch (e) {}
+
+      return result.result;
     } catch (error) {
       console.error(`[TELEGRAM] [ERROR] 上传分片到 Telegram 失败:`, error);
       // 提供更详细的错误信息
@@ -314,24 +371,24 @@ export class TelegramService {
    * @param {string} telegram_file_id - 文件id
    */
 	// todo telegram 是否支持直接删除文件
-  async deleteTelegramFileById(telegram_file_id) {
+  async deleteTelegramFileById(chunk) {
     try {
-      // const response = await fetch(`${this.apiBaseUrl}/deleteMessage`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json'
-      //   },
-      //   body: JSON.stringify({
-      //     chat_id: this.chatId,
-      //     message_id: parseInt(telegram_file_id)
-      //   })
-      // });
-			//
-      // const result = await response.json();
-			//
-      // if (!result.ok) {
-      //   console.warn(`Failed to delete message ${telegram_file_id}: ${result.description}`);
-      // }
+      const response = await fetch(`${this.apiBaseUrl}/deleteMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          chat_id: this.chatId,
+          message_id: parseInt(chunk.telegram_message_id)
+        })
+      });
+			
+      const result = await response.json();
+			
+      if (!result.ok) {
+        console.warn(`Failed to delete message ${chunk.telegram_message_id}: ${result.description}`);
+      }
     } catch (error) {
       console.warn('Error deleting message from Telegram:', error);
     }

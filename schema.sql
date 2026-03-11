@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS file_chunks (
     file_id INTEGER NOT NULL,
     chunk_index INTEGER NOT NULL,
     telegram_file_id TEXT NOT NULL,
+    telegram_message_id INTEGER NOT NULL,
     size INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS temp_chunks (
     upload_id TEXT NOT NULL,
     chunk_index INTEGER NOT NULL,
     telegram_file_id TEXT NOT NULL,
+    telegram_message_id INTEGER NOT NULL,
     size INTEGER NOT NULL,
     original_file_name TEXT NOT NULL,
     original_file_size INTEGER NOT NULL,
@@ -54,6 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders(parent_id);
 CREATE INDEX IF NOT EXISTS idx_files_folder_id ON files(folder_id);
 CREATE INDEX IF NOT EXISTS idx_file_chunks_file_id ON file_chunks(file_id);
 CREATE INDEX IF NOT EXISTS idx_file_chunks_telegram_file_id ON file_chunks(telegram_file_id);
+CREATE INDEX IF NOT EXISTS idx_file_chunks_telegram_message_id ON file_chunks(telegram_message_id);
 CREATE INDEX IF NOT EXISTS idx_temp_chunks_upload_id ON temp_chunks(upload_id);
 CREATE INDEX IF NOT EXISTS idx_temp_chunks_created_at ON temp_chunks(created_at);
 

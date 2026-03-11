@@ -268,13 +268,14 @@ export class DatabaseService {
    * @param {number} fileId - 文件ID
    * @param {number} chunkIndex - 分片索引
    * @param {string} telegramFileId - Telegram文件ID
+   * @param {number} telegramMessageId - Telegram message id (用于删除/追踪)
    * @param {number} size - 分片大小
    * @returns {Object} 创建的分片信息
    */
-  async createFileChunk(fileId, chunkIndex, telegramFileId, size) {
+  async createFileChunk(fileId, chunkIndex, telegramFileId, telegramMessageId, size) {
     try {
-      const insertQuery = 'INSERT INTO file_chunks (file_id, chunk_index, telegram_file_id, size) VALUES (?, ?, ?, ?) RETURNING *';
-      const result = await this.db.prepare(insertQuery).bind(fileId, chunkIndex, telegramFileId, size).first();
+      const insertQuery = 'INSERT INTO file_chunks (file_id, chunk_index, telegram_file_id, telegram_message_id, size) VALUES (?, ?, ?, ?, ?) RETURNING *';
+      const result = await this.db.prepare(insertQuery).bind(fileId, chunkIndex, telegramFileId, telegramMessageId, size).first();
 
       return result;
     } catch (error) {
@@ -346,20 +347,21 @@ export class DatabaseService {
    * @param {string} uploadId - 上传ID
    * @param {number} chunkIndex - 分片索引
    * @param {string} telegramFileId - Telegram文件ID
+   * @param {number} telegramMessageId - Telegram message id (用于删除/追踪)
    * @param {number} size - 分片大小
    * @param {string} originalFileName - 原始文件名
    * @param {number} originalFileSize - 原始文件大小
    * @param {number|null} folderId - 文件夹ID
    * @returns {Object} 创建的临时分片信息
    */
-  async createTempChunk(uploadId, chunkIndex, telegramFileId, size, originalFileName, originalFileSize, folderId) {
+  async createTempChunk(uploadId, chunkIndex, telegramFileId, telegramMessageId, size, originalFileName, originalFileSize, folderId) {
     try {
       const insertQuery = `
-        INSERT INTO temp_chunks (upload_id, chunk_index, telegram_file_id, size, original_file_name, original_file_size, folder_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *
+        INSERT INTO temp_chunks (upload_id, chunk_index, telegram_file_id, telegram_message_id, size, original_file_name, original_file_size, folder_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
       `;
       const result = await this.db.prepare(insertQuery).bind(
-        uploadId, chunkIndex, telegramFileId, size, originalFileName, originalFileSize, folderId
+        uploadId, chunkIndex, telegramFileId, telegramMessageId, size, originalFileName, originalFileSize, folderId
       ).first();
 
       return result;

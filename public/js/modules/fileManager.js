@@ -145,22 +145,25 @@ export class FileManager {
             // 验证文件
             this.validateFile(file);
 
-            // 设置分片大小阈值，超过此大小使用分片上传
-            // 注意：后端会将上传数据按照 Telegram 的要求再分片（后端默认 chunkSize 在 `src/services/telegram.js` 中），
-            // 为保持前后端一致并减少分片数量，这里将前端阈值调整为 25MB。
-            // 如需更改，请同时同步修改后端 `src/services/telegram.js` 中的 `chunkSize`。
-            const CHUNK_THRESHOLD = 25 * 1024 * 1024; // 25MB
+            // 分片策略：按总文件大小选择分片大小并保持与后端一致。
+            // - 文件 <= 50MB：直接普通上传
+            // - 50MB < 文件 <= 200MB：采用 20MB 分片
+            // - 文件 > 200MB：采用 10MB 分片
+            const NO_CHUNK_LIMIT = 50 * 1024 * 1024; // 50MB
+            const MID_LIMIT = 200 * 1024 * 1024; // 200MB
+            const CHUNK_20MB = 20 * 1024 * 1024; // 20MB
+            const CHUNK_10MB = 10 * 1024 * 1024; // 10MB
 
-            if (file.size > CHUNK_THRESHOLD) {
-                console.log(`文件大小 ${this.formatFileSize(file.size)} 超过阈值${CHUNK_THRESHOLD}，使用分片上传`);
-                // 使用分片上传
-                return await this.uploadFileWithChunks(file, folderId, onProgress);
-            } else {
-                console.log(`文件大小 ${this.formatFileSize(file.size)} 未超过阈值，使用普通上传`);
-                // 使用普通上传
+            if (file.size <= NO_CHUNK_LIMIT) {
+                console.log(`文件大小 ${this.formatFileSize(file.size)} 小于等于 ${this.formatFileSize(NO_CHUNK_LIMIT)}，使用普通上传`);
                 const result = await this.apiClient.uploadFile(file, folderId, onProgress);
                 return result;
             }
+
+            // 需要分片上传，按总大小决定每片大小
+            const chosenChunkSize = file.size <= MID_LIMIT ? CHUNK_20MB : CHUNK_10MB;
+            console.log(`文件大小 ${this.formatFileSize(file.size)}，使用分片上传，分片大小: ${this.formatFileSize(chosenChunkSize)}`);
+            return await this.uploadFileWithChunks(file, folderId, onProgress, chosenChunkSize);
         } catch (error) {
             console.error('上传文件失败:', error);
 
@@ -194,10 +197,9 @@ export class FileManager {
      * @param {Function|null} onProgress - 进度回调函数
      * @returns {Promise<Object>} - 上传结果
      */
-    async uploadFileWithChunks(file, folderId = null, onProgress = null) {
-        // 与后端 Telegram 分片大小对齐，避免前端与后端产生不一致的分片策略
-        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
-        // const CHUNK_SIZE = 25 * 1024 * 1024; // 25MB per chunk
+    async uploadFileWithChunks(file, folderId = null, onProgress = null, chunkSize = 5 * 1024 * 1024) {
+        // 按调用方指定的 chunkSize 进行分片，默认 5MB
+        const CHUNK_SIZE = chunkSize;
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
         const uploadId = this.generateUploadId();
 
